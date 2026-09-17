@@ -1,0 +1,12 @@
+# Dependencies
+/backend/vendor/
+/frontend/node_modules/
+
+# Environment files (CRITICAL: Do not upload secrets)
+/backend/.env
+/frontend/src/environments/environment.ts
+
+# Build & System outputs
+/frontend/dist/
+/backend/storage/*.key
+.DS_Store
