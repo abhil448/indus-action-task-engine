@@ -31,6 +31,85 @@ This system features backend-driven data scoping, a dynamic task allocation rule
 
 ---
 
+## Architecture Decisions
+
+- **Backend-Driven Data Scoping:** Security and query filtering are enforced at the API database level (`GET /api/tasks`). Non-admin users only receive records assigned directly to them, preventing unauthorized data exposure and minimizing frontend payload sizes.
+- **Modern Angular 18+ Architecture:** Implemented using Angular Standalone Components without legacy NgModules. Uses Angular Signals (`signal`, `computed`) for reactive state management across all task feeds and status updates.
+- **Asynchronous Offloading:** Task candidate processing and rule matching execute via queue workers backed by Redis, preserving fast sub-100ms API response times during creation.
+- **Stateless Token Authentication:** Authenticated with Laravel Sanctum Bearer tokens. Client-side navigation is protected by functional Angular Route Guards (`authGuard` and `adminGuard`).
+
+---
+
+## Database Design
+
+The schema prioritizes data integrity and query efficiency for real-time rule matching.
+
+### Schema Blueprint
+
+**`users` Table** — Stores profile parameters used by the allocation engine:
+
+| Column               | Type              | Notes                                          |
+|----------------------|-------------------|-------------------------------------------------|
+| `id`                 | PK                |                                                   |
+| `name`               | string            |                                                   |
+| `email`              | string            |                                                   |
+| `password`           | string            |                                                   |
+| `role`               | enum              | `admin`, `user`                                  |
+| `department`         | string            | e.g., `Education`, `Healthcare`, `RTI`           |
+| `location`           | string            | e.g., `Delhi`, `Mumbai`                          |
+| `experience_years`   | integer           |                                                   |
+| `active_tasks_count` | unsigned integer  | Maintained dynamically                           |
+
+**`tasks` Table** — Tracks task metadata, status, priority, and JSON rule definitions:
+
+| Column              | Type          | Notes                                       |
+|---------------------|---------------|-----------------------------------------------|
+| `id`                | PK            |                                                |
+| `title`             | string        |                                                |
+| `description`       | text          |                                                |
+| `status`            | enum          | `todo`, `in_progress`, `done`                 |
+| `priority`          | enum          | `low`, `medium`, `high`, `urgent`             |
+| `assigned_to`       | FK (nullable) | References `users.id`                         |
+| `assignment_rules`  | JSON / JSONB  | Stores filter parameters                      |
+
+**`personal_access_tokens` Table** — Managed by Laravel Sanctum for API access control.
+
+---
+
+## ER Diagram
+
+```mermaid
+erDiagram
+    USERS ||--o{ TASKS : "assigned to"
+
+    USERS {
+        int id PK
+        string name
+        string email
+        string role "admin / user"
+        string department
+        string location
+        int experience_years
+        int active_tasks_count
+        datetime created_at
+        datetime updated_at
+    }
+
+    TASKS {
+        int id PK
+        string title
+        string description
+        string status "todo / in_progress / done"
+        string priority "low / medium / high / urgent"
+        int assigned_to FK
+        json assignment_rules
+        datetime created_at
+        datetime updated_at
+    }
+```
+
+---
+
 ## Authentication
 
 All endpoints (except `register` and `login`) require the following headers:
@@ -459,3 +538,4 @@ All errors follow a consistent JSON structure:
 ---
 
 *Note: Sample request/response payloads above are illustrative, based on standard Laravel Sanctum conventions. Replace with actual payloads from your implementation where they differ.*
+   
